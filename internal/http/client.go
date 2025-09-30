@@ -62,6 +62,9 @@ func BuildRequest(p *project.Project, spec RequestSpec) (*http.Request, error) {
 	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
 		// Path is a full URL, use it directly
 		fullURL = path
+	} else if path == "@" {
+		// Special case: @ means use just the base URL (useful for GraphQL APIs)
+		fullURL = baseURL
 	} else {
 		// Path is relative, combine with base URL
 		fullURL = strings.TrimSuffix(baseURL, "/") + "/" + strings.TrimPrefix(path, "/")

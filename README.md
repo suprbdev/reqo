@@ -159,6 +159,9 @@ reqo save get-users GET /users
 reqo save create-user POST /users --use-headers auth
 reqo save update-user PUT /users/${id} --desc "Update user by ID"
 
+# Use @ for base URL only (useful for GraphQL APIs)
+reqo save graphql-query POST @ --json '{"query": "${query}"}'
+
 # Save calls with request payloads
 reqo save create-user POST /users --json '{"name": "${name}", "email": "${email}"}'
 reqo save upload-file POST /upload --form "file=@${file_path}" --form "description=${desc}"
@@ -257,6 +260,13 @@ calls:
         file: "@${file_path}"
         description: "${desc}"
     description: "Upload a file"
+  graphql-query:
+    method: POST
+    path: "@"
+    uses_header_set: api
+    body:
+      json: '{"query": "${query}", "variables": "${variables}"}'
+    description: "GraphQL query"
 ```
 
 ## Template Variables
@@ -273,6 +283,16 @@ reqo req GET /users/${USER_ID}
 ```
 
 ## Request Payloads
+
+### Base URL Only (GraphQL Support)
+
+For APIs that use a single endpoint (like GraphQL), use `@` as the path to use just the base URL:
+
+```bash
+# GraphQL API example
+reqo save graphql-query POST @ --json '{"query": "${query}", "variables": "${variables}"}'
+reqo run graphql-query --var query="query { users { name } }"
+```
 
 ### Saving Payloads with Calls
 
