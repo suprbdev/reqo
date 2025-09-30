@@ -6,9 +6,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
 	httpx "github.com/suprbdev/reqo/internal/http"
 	"github.com/suprbdev/reqo/internal/output"
-	"github.com/spf13/cobra"
+	"github.com/suprbdev/reqo/internal/template"
 )
 
 func newRunCmd() *cobra.Command {
@@ -68,14 +69,32 @@ func runAlias(cmd *cobra.Command, args []string) error {
 		EnvName:      getString(cmd, "env"),
 	}
 
+	// Handle body from command line flags (override saved body)
 	if jsonBody := getString(cmd, "json"); jsonBody != "" {
 		spec.JSONBody = &jsonBody
+	} else if callDef.Body != nil && callDef.Body.JSON != nil {
+		// Use saved JSON body with variable expansion
+		expandedJSON := template.Expand(*callDef.Body.JSON, vars)
+		spec.JSONBody = &expandedJSON
 	}
+
 	if rawBody := getString(cmd, "data"); rawBody != "" {
 		spec.RawBody = &rawBody
+	} else if callDef.Body != nil && callDef.Body.Raw != nil {
+		// Use saved raw body with variable expansion
+		expandedRaw := template.Expand(*callDef.Body.Raw, vars)
+		spec.RawBody = &expandedRaw
 	}
+
 	if formMap := getStringToString(cmd, "form"); len(formMap) > 0 {
 		spec.FormFields = formMap
+	} else if callDef.Body != nil && len(callDef.Body.Form) > 0 {
+		// Use saved form fields with variable expansion
+		expandedForm := make(map[string]string)
+		for k, v := range callDef.Body.Form {
+			expandedForm[k] = template.Expand(v, vars)
+		}
+		spec.FormFields = expandedForm
 	}
 
 	// Build request

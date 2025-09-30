@@ -158,6 +158,11 @@ Create a saved call (alias).
 reqo save get-users GET /users
 reqo save create-user POST /users --use-headers auth
 reqo save update-user PUT /users/${id} --desc "Update user by ID"
+
+# Save calls with request payloads
+reqo save create-user POST /users --json '{"name": "${name}", "email": "${email}"}'
+reqo save upload-file POST /upload --form "file=@${file_path}" --form "description=${desc}"
+reqo save update-config PUT /config --data '{"setting": "${value}"}'
 ```
 
 #### `reqo run <alias>`
@@ -169,6 +174,11 @@ reqo run get-users --env prod
 reqo run get-users --header "X-Custom: value"
 reqo run get-users --var id=123
 reqo run get-users --as-curl
+
+# Run calls with saved payloads and variable expansion
+reqo run create-user --var name="John Doe" --var email="john@example.com"
+reqo run upload-file --var file_path="/path/to/file.txt" --var desc="My file"
+reqo run update-config --var value="production"
 ```
 
 ### Ad-hoc Requests
@@ -235,6 +245,18 @@ calls:
     method: POST
     path: /users
     uses_header_set: api
+    body:
+      json: '{"name": "${name}", "email": "${email}"}'
+    description: "Create a new user"
+  upload-file:
+    method: POST
+    path: /upload
+    uses_header_set: api
+    body:
+      form:
+        file: "@${file_path}"
+        description: "${desc}"
+    description: "Upload a file"
 ```
 
 ## Template Variables
@@ -248,6 +270,46 @@ Use `${variable}` syntax for dynamic values:
 ```bash
 reqo run get-user --var id=123
 reqo req GET /users/${USER_ID}
+```
+
+## Request Payloads
+
+### Saving Payloads with Calls
+
+You can save request payloads (JSON, raw data, or form fields) with your saved calls:
+
+```bash
+# Save a call with JSON payload
+reqo save create-user POST /users --json '{"name": "${name}", "email": "${email}"}'
+
+# Save a call with raw data payload
+reqo save update-config PUT /config --data '{"setting": "${value}"}'
+
+# Save a call with form data
+reqo save upload-file POST /upload --form "file=@${file_path}" --form "description=${desc}"
+```
+
+### Variable Expansion in Payloads
+
+When running saved calls, variables in payloads are automatically expanded:
+
+```bash
+# The saved JSON payload will have variables replaced
+reqo run create-user --var name="John Doe" --var email="john@example.com"
+# Results in: {"name": "John Doe", "email": "john@example.com"}
+
+# Form fields with variables
+reqo run upload-file --var file_path="/path/to/file.txt" --var desc="My file"
+# Results in: file=@/path/to/file.txt, description=My file
+```
+
+### Overriding Saved Payloads
+
+Command-line flags always override saved payloads:
+
+```bash
+# This will use the command-line JSON instead of the saved one
+reqo run create-user --json '{"name": "Override", "email": "override@example.com"}'
 ```
 
 ## Request Options
@@ -286,12 +348,12 @@ reqo header set --name auth "Authorization: Bearer ${API_TOKEN}"
 
 # 4. Create saved calls
 reqo save list-users GET /users --use-headers auth
-reqo save create-user POST /users --use-headers auth
+reqo save create-user POST /users --use-headers auth --json '{"name": "${name}", "email": "${email}"}'
 reqo save get-user GET /users/${id} --use-headers auth
 
 # 5. Test the API
 reqo run list-users --env dev
-reqo run create-user --env dev --json '{"name": "John", "email": "john@example.com"}'
+reqo run create-user --env dev --var name="John" --var email="john@example.com"
 reqo run get-user --env dev --var id=123
 
 # 6. Generate curl for debugging
