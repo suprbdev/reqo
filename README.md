@@ -1,0 +1,413 @@
+# reqo
+
+**reqo** is a friendly HTTP client that groups requests into projects, supports environments, reusable header sets and saved aliases. Think of it as `curl`, but with project organization and saved calls.
+
+## Features
+
+- 🗂️ **Project-based organization** - Group related API calls into projects
+- 🌍 **Environment management** - Switch between dev, staging, production environments
+- 📋 **Header sets** - Reusable header configurations (auth tokens, API keys, etc.)
+- 💾 **Saved calls** - Create aliases for frequently used requests
+- 🔧 **Ad-hoc requests** - Make one-off requests without saving
+- 🐚 **Curl export** - Generate equivalent curl commands
+- 📝 **Template variables** - Use `${var}` syntax for dynamic values
+- 🎨 **Pretty output** - Automatic JSON formatting and colored output
+
+## Installation
+
+### Build from source
+
+```bash
+git clone https://github.com/suprbdev/reqo.git
+cd reqo
+make build    # Build for current platform
+# or
+make dev      # Build for development (current directory)
+```
+
+### Install globally
+
+```bash
+make install        # Install to GOBIN or GOPATH/bin
+make install-system # Install to /usr/local/bin (requires sudo)
+```
+
+### Cross-platform builds
+
+```bash
+make build-all      # Build for all platforms (Linux, macOS, Windows)
+make build-linux    # Build for Linux
+make build-darwin   # Build for macOS (Intel + Apple Silicon)
+make build-windows  # Build for Windows
+```
+
+### Development
+
+```bash
+make dev-setup      # Setup development environment (tidy, fmt, lint)
+make test           # Run tests
+make test-coverage  # Run tests with coverage report
+make lint           # Run linter
+make fmt            # Format code
+make tidy           # Tidy dependencies
+make clean          # Clean build artifacts
+make help           # Show all available targets
+```
+
+## Quick Start
+
+1. **Build and install reqo:**
+   ```bash
+   git clone https://github.com/suprbdev/reqo.git
+   cd reqo
+   make build && make install
+   ```
+
+2. **Initialize a project:**
+   ```bash
+   reqo init my-api
+   ```
+
+3. **Add an environment:**
+   ```bash
+   reqo env add prod --base-url https://api.example.com
+   ```
+
+4. **Create a saved call:**
+   ```bash
+   reqo save get-users GET /users
+   ```
+
+5. **Execute the call:**
+   ```bash
+   reqo run get-users --env prod
+   ```
+
+6. **Make an ad-hoc request:**
+   ```bash
+   reqo req GET https://httpbin.org/get
+   ```
+
+## Commands
+
+### Project Management
+
+#### `reqo init <project-name>`
+Create a new reqo project.
+
+```bash
+reqo init my-api                    # Local project
+reqo init my-api --global          # Global project (~/.reqo/projects/)
+```
+
+#### `reqo use <project-name>`
+Set the active project for the current directory.
+
+```bash
+reqo use my-api
+```
+
+### Environment Management
+
+#### `reqo env add <name> --base-url <url>`
+Add a new environment to the current project.
+
+```bash
+reqo env add dev --base-url https://dev-api.example.com
+reqo env add prod --base-url https://api.example.com
+```
+
+#### `reqo env list`
+List all environments in the current project.
+
+```bash
+reqo env list
+```
+
+### Header Management
+
+#### `reqo header set --name <set> "Header: Value"`
+Create or update a header set.
+
+```bash
+reqo header set --name auth "Authorization: Bearer token123"
+reqo header set --name api "X-API-Key: abc123" "Content-Type: application/json"
+```
+
+#### `reqo header list`
+List all header sets.
+
+```bash
+reqo header list
+```
+
+#### `reqo header rm <set>`
+Remove a header set.
+
+```bash
+reqo header rm auth
+```
+
+### Saved Calls
+
+#### `reqo save <alias> <method> <path>`
+Create a saved call (alias).
+
+```bash
+reqo save get-users GET /users
+reqo save create-user POST /users --use-headers auth
+reqo save update-user PUT /users/${id} --desc "Update user by ID"
+```
+
+#### `reqo run <alias>`
+Execute a saved call with optional overrides.
+
+```bash
+reqo run get-users
+reqo run get-users --env prod
+reqo run get-users --header "X-Custom: value"
+reqo run get-users --var id=123
+reqo run get-users --as-curl
+```
+
+### Ad-hoc Requests
+
+#### `reqo req <method|path> [path]`
+Make an ad-hoc HTTP request without saving.
+
+```bash
+reqo req GET https://httpbin.org/get
+reqo req POST /users --json '{"name": "John"}'
+reqo req PUT /users/123 --data '{"name": "Jane"}'
+```
+
+### Configuration
+
+#### `reqo config set <key> <value>`
+Set a global configuration value.
+
+```bash
+reqo config set default_timeout 60
+```
+
+#### `reqo config get <key>`
+Get a global configuration value.
+
+```bash
+reqo config get default_timeout
+```
+
+## Project Structure
+
+When you run `reqo init`, it creates a `.reqo/` directory with:
+
+```
+.reqo/
+├── project.yaml    # Project configuration
+└── current         # Active project name
+```
+
+### project.yaml Example
+
+```yaml
+version: 1
+name: my-api
+default_env: dev
+environments:
+  dev:
+    base_url: https://dev-api.example.com
+  prod:
+    base_url: https://api.example.com
+header_sets:
+  auth:
+    - "Authorization: Bearer ${TOKEN}"
+  api:
+    - "X-API-Key: ${API_KEY}"
+    - "Content-Type: application/json"
+calls:
+  get-users:
+    method: GET
+    path: /users
+    uses_header_set: auth
+    description: "Get all users"
+  create-user:
+    method: POST
+    path: /users
+    uses_header_set: api
+```
+
+## Template Variables
+
+Use `${variable}` syntax for dynamic values:
+
+- **Command-line variables:** `--var key=value`
+- **Environment variables:** `${HOME}`, `${USER}`, etc.
+- **Project variables:** (future feature)
+
+```bash
+reqo run get-user --var id=123
+reqo req GET /users/${USER_ID}
+```
+
+## Request Options
+
+### Data Options
+- `--json <data|@file>` - JSON request body
+- `--data <data|@file>` - Raw request body  
+- `--form <key=value>` - Multipart form data
+
+### Request Options
+- `--header "Key: Value"` - Add headers
+- `--query "key=value"` - Add query parameters
+- `--env <name>` - Use specific environment
+- `--timeout <seconds>` - Request timeout (default: 30)
+- `--retries <count>` - Retry count (default: 0)
+
+### Output Options
+- `--include` / `-i` - Show response headers
+- `--raw` - Raw response body (no formatting)
+- `--as-curl` - Print equivalent curl command
+
+## Examples
+
+### API Testing Workflow
+
+```bash
+# 1. Initialize project
+reqo init my-api
+
+# 2. Add environments
+reqo env add dev --base-url https://dev-api.example.com
+reqo env add prod --base-url https://api.example.com
+
+# 3. Set up authentication
+reqo header set --name auth "Authorization: Bearer ${API_TOKEN}"
+
+# 4. Create saved calls
+reqo save list-users GET /users --use-headers auth
+reqo save create-user POST /users --use-headers auth
+reqo save get-user GET /users/${id} --use-headers auth
+
+# 5. Test the API
+reqo run list-users --env dev
+reqo run create-user --env dev --json '{"name": "John", "email": "john@example.com"}'
+reqo run get-user --env dev --var id=123
+
+# 6. Generate curl for debugging
+reqo run list-users --env prod --as-curl
+```
+
+### One-off Requests
+
+```bash
+# Test external APIs
+reqo req GET https://httpbin.org/get
+reqo req POST https://httpbin.org/post --json '{"test": "data"}'
+
+# Test with custom headers
+reqo req GET https://api.github.com/user --header "Authorization: token ${GITHUB_TOKEN}"
+
+# Test with form data
+reqo req POST https://httpbin.org/post --form "name=John" --form "email=john@example.com"
+```
+
+## Global Configuration
+
+Global configuration is stored in `~/.reqo/config.yaml`:
+
+```yaml
+default_timeout: 60
+default_retries: 3
+```
+
+## Development
+
+### Makefile Features
+
+The project includes a comprehensive Makefile with the following targets:
+
+#### Building
+- `make build` - Build binary for current platform
+- `make dev` - Build binary for development (current directory)
+- `make build-all` - Build for all platforms (Linux, macOS, Windows)
+- `make build-linux` - Build for Linux (amd64)
+- `make build-darwin` - Build for macOS (Intel + Apple Silicon)
+- `make build-windows` - Build for Windows (amd64)
+
+#### Installation
+- `make install` - Install to GOBIN or GOPATH/bin
+- `make install-system` - Install to /usr/local/bin (requires sudo)
+
+#### Development Tools
+- `make test` - Run tests
+- `make test-coverage` - Run tests with coverage report
+- `make bench` - Run benchmarks
+- `make lint` - Run linter (golangci-lint or go vet)
+- `make fmt` - Format code (go fmt + goimports)
+- `make tidy` - Tidy dependencies
+- `make clean` - Clean build artifacts
+
+#### Workflow
+- `make dev-setup` - Setup development environment (tidy, fmt, lint)
+- `make release-prep` - Prepare for release (clean, test, lint, build-all)
+- `make run` - Build and run the application
+- `make help` - Show all available targets
+
+### Build Variables
+
+You can customize the build with these variables:
+
+```bash
+make build BINARY_NAME=my-reqo BUILD_DIR=dist
+```
+
+Available variables:
+- `BINARY_NAME` - Name of the binary (default: reqo)
+- `BUILD_DIR` - Build directory (default: build)
+- `VERSION` - Version from git tags (default: dev)
+
+The makefile automatically detects your Go environment:
+- Uses `GOBIN` if set, otherwise falls back to `GOPATH/bin`
+- Uses `go env` to get current Go settings
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Setup development environment: `make dev-setup`
+4. Make your changes
+5. Run tests: `make test`
+6. Run linter: `make lint`
+7. Format code: `make fmt`
+8. Add tests if applicable
+9. Commit your changes: `git commit -m 'Add amazing feature'`
+10. Push to the branch: `git push origin feature/amazing-feature`
+11. Submit a pull request
+
+### Development Requirements
+
+- Go 1.22 or later
+- Git
+- Make (optional, for using the Makefile)
+
+### Optional Tools
+
+For enhanced development experience, install these tools:
+
+```bash
+# Linter
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+
+# Code formatting
+go install golang.org/x/tools/cmd/goimports@latest
+```
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- Built with [Cobra](https://github.com/spf13/cobra) for CLI framework
+- Uses [Viper](https://github.com/spf13/viper) for configuration management
+- JSON processing with [gojq](https://github.com/itchyny/gojq)
