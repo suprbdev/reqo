@@ -97,14 +97,18 @@ func BuildRequest(p *project.Project, spec RequestSpec) (*http.Request, error) {
 		if err != nil {
 			return nil, err
 		}
-		body = bytes.NewReader([]byte(data))
+		// Apply variable expansion to file content
+		expandedData := template.Expand(data, spec.Vars)
+		body = bytes.NewReader([]byte(expandedData))
 		contentType = "application/json"
 	case spec.RawBody != nil:
 		data, err := readPossiblyFile(*spec.RawBody)
 		if err != nil {
 			return nil, err
 		}
-		body = strings.NewReader(data)
+		// Apply variable expansion to file content
+		expandedData := template.Expand(data, spec.Vars)
+		body = strings.NewReader(expandedData)
 	case len(spec.FormFields) > 0:
 		var b bytes.Buffer
 		w := multipart.NewWriter(&b)
