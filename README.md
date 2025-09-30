@@ -28,8 +28,9 @@ make dev      # Build for development (current directory)
 ### Install globally
 
 ```bash
-make install        # Install to GOBIN or GOPATH/bin
-make install-system # Install to /usr/local/bin (requires sudo)
+go install github.com/suprbdev/reqo/cmd/reqo@latest  # Install to home from GitHub
+make install                                         # Install to GOBIN or GOPATH/bin
+make install-system                                  # Install to /usr/local/bin (requires sudo)
 ```
 
 ### Cross-platform builds
