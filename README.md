@@ -288,7 +288,7 @@ calls:
 Use `${variable}` syntax for dynamic values:
 
 - **Command-line variables:** `--var key=value`
-- **Environment variables:** `${HOME}`, `${USER}`, etc.
+- **Environment variables:** `${REQO_TOKEN}`, `${REQO_USER}`, etc. (falls back to `${TOKEN}`, `${USER}` if `REQO_` version is not set)
 - **Project variables:** (future feature)
 
 ```bash
@@ -361,7 +361,7 @@ reqo call run create-user --json '{"name": "Override", "email": "override@exampl
 ### Request Options
 - `--header "Key: Value"` - Add headers
 - `--query "key=value"` - Add query parameters
-- `--env <name>` - Use specific environment
+- `--env <name>` - Use specific environment (defaults to `REQO_ENV` if set)
 - `--timeout <seconds>` - Request timeout (default: 30)
 - `--retries <count>` - Retry count (default: 0)
 

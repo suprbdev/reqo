@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -156,6 +157,12 @@ func newCallCmd() *cobra.Command {
 				}
 			}
 
+			// derive environment name: flag > REQO_ENV > project default (handled in BuildRequest)
+			envName := getString(cmd, "env")
+			if envName == "" {
+				envName = os.Getenv("REQO_ENV")
+			}
+
 			spec := httpx.RequestSpec{
 				Method:       callDef.Method,
 				Path:         callDef.Path,
@@ -163,7 +170,7 @@ func newCallCmd() *cobra.Command {
 				Headers:      getStringArray(cmd, "header"),
 				UseHeaderSet: callDef.UseHeaderSet,
 				Vars:         vars,
-				EnvName:      getString(cmd, "env"),
+				EnvName:      envName,
 			}
 
 			if jsonBody := getString(cmd, "json"); jsonBody != "" {

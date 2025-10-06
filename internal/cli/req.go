@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
 	httpx "github.com/suprbdev/reqo/internal/http"
 	"github.com/suprbdev/reqo/internal/output"
 	"github.com/suprbdev/reqo/internal/project"
-	"github.com/spf13/cobra"
 )
 
 func newReqCmd() *cobra.Command {
@@ -62,13 +62,19 @@ func runReq(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	spec := httpx.RequestSpec{
+    // derive environment name: flag > REQO_ENV > project default (handled in BuildRequest)
+    envName := getString(cmd, "env")
+    if envName == "" {
+        envName = os.Getenv("REQO_ENV")
+    }
+
+    spec := httpx.RequestSpec{
 		Method:      method,
 		Path:        path,
 		QueryParams: getStringArray(cmd, "query"),
 		Headers:     getStringArray(cmd, "header"),
 		Vars:        vars,
-		EnvName:     getString(cmd, "env"),
+		EnvName:     envName,
 	}
 	if jsonBody := getString(cmd, "json"); jsonBody != "" {
 		spec.JSONBody = &jsonBody

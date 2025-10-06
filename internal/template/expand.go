@@ -17,7 +17,11 @@ func Expand(input string, vars map[string]string) string {
 		if v, ok := vars[key]; ok {
 			return v
 		}
-		if ev := os.Getenv(key); ev != "" {
+        // Prefer REQO_ prefixed env vars if present, otherwise fallback to plain
+        if ev := os.Getenv("REQO_" + key); ev != "" {
+            return ev
+        }
+        if ev := os.Getenv(key); ev != "" {
 			return ev
 		}
 		// TODO: future project‑level variables could be added here.
