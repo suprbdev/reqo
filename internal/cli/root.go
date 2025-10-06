@@ -32,8 +32,7 @@ Run 'reqo <command> --help' for details.`,
 		newConfigCmd(),
 		newEnvCmd(),
 		newHeaderCmd(),
-		newSaveCmd(),
-		newRunCmd(),
+		newCallCmd(),
 		newReqCmd(),
 	)
 

@@ -76,12 +76,12 @@ make help           # Show all available targets
 
 4. **Create a saved call:**
    ```bash
-   reqo save create get-users GET /users
+   reqo call create get-users GET /users
    ```
 
 5. **Execute the call:**
    ```bash
-   reqo run get-users --env prod
+   reqo call run get-users --env prod
    ```
 
 6. **Make an ad-hoc request:**
@@ -151,51 +151,51 @@ reqo header rm auth
 
 ### Saved Calls
 
-#### `reqo save create <alias> <method> <path>`
+#### `reqo call create <alias> <method> <path>`
 Create a saved call (alias).
 
 ```bash
-reqo save create get-users GET /users
-reqo save create create-user POST /users --use-headers auth
-reqo save create update-user PUT /users/${id} --desc "Update user by ID"
+reqo call create get-users GET /users
+reqo call create create-user POST /users --use-headers auth
+reqo call create update-user PUT /users/${id} --desc "Update user by ID"
 
 # Use @ for base URL only (useful for GraphQL APIs)
-reqo save create graphql-query POST @ --json '{"query": "${query}"}'
+reqo call create graphql-query POST @ --json '{"query": "${query}"}'
 
 # Save calls with request payloads
-reqo save create create-user POST /users --json '{"name": "${name}", "email": "${email}"}'
-reqo save create upload-file POST /upload --form "file=@${file_path}" --form "description=${desc}"
-reqo save create update-config PUT /config --data '{"setting": "${value}"}'
+reqo call create create-user POST /users --json '{"name": "${name}", "email": "${email}"}'
+reqo call create upload-file POST /upload --form "file=@${file_path}" --form "description=${desc}"
+reqo call create update-config PUT /config --data '{"setting": "${value}"}'
 ```
 
-#### `reqo save list`
+#### `reqo call list`
 List all saved calls in the current project.
 
 ```bash
-reqo save list
+reqo call list
 ```
 
-#### `reqo save rm <alias>`
+#### `reqo call rm <alias>`
 Remove a saved call.
 
 ```bash
-reqo save rm old-call
+reqo call rm old-call
 ```
 
-#### `reqo run <alias>`
+#### `reqo call run <alias>`
 Execute a saved call with optional overrides.
 
 ```bash
-reqo run get-users
-reqo run get-users --env prod
-reqo run get-users --header "X-Custom: value"
-reqo run get-users --var id=123
-reqo run get-users --as-curl
+reqo call run get-users
+reqo call run get-users --env prod
+reqo call run get-users --header "X-Custom: value"
+reqo call run get-users --var id=123
+reqo call run get-users --as-curl
 
 # Run calls with saved payloads and variable expansion
-reqo run create-user --var name="John Doe" --var email="john@example.com"
-reqo run upload-file --var file_path="/path/to/file.txt" --var desc="My file"
-reqo run update-config --var value="production"
+reqo call run create-user --var name="John Doe" --var email="john@example.com"
+reqo call run upload-file --var file_path="/path/to/file.txt" --var desc="My file"
+reqo call run update-config --var value="production"
 ```
 
 ### Ad-hoc Requests
@@ -304,8 +304,8 @@ For APIs that use a single endpoint (like GraphQL), use `@` as the path to use j
 
 ```bash
 # GraphQL API example
-reqo save create graphql-query POST @ --json '{"query": "${query}", "variables": "${variables}"}'
-reqo run graphql-query --var query="query { users { name } }"
+reqo call create graphql-query POST @ --json '{"query": "${query}", "variables": "${variables}"}'
+reqo call run graphql-query --var query="query { users { name } }"
 ```
 
 ### Saving Payloads with Calls
@@ -314,13 +314,13 @@ You can save request payloads (JSON, raw data, or form fields) with your saved c
 
 ```bash
 # Save a call with JSON payload
-reqo save create create-user POST /users --json '{"name": "${name}", "email": "${email}"}'
+reqo call create create-user POST /users --json '{"name": "${name}", "email": "${email}"}'
 
 # Save a call with raw data payload
-reqo save create update-config PUT /config --data '{"setting": "${value}"}'
+reqo call create update-config PUT /config --data '{"setting": "${value}"}'
 
 # Save a call with form data
-reqo save create upload-file POST /upload --form "file=@${file_path}" --form "description=${desc}"
+reqo call create upload-file POST /upload --form "file=@${file_path}" --form "description=${desc}"
 ```
 
 ### Variable Expansion in Payloads
@@ -329,15 +329,15 @@ When running saved calls, variables in payloads are automatically expanded:
 
 ```bash
 # The saved JSON payload will have variables replaced
-reqo run create-user --var name="John Doe" --var email="john@example.com"
+reqo call run create-user --var name="John Doe" --var email="john@example.com"
 # Results in: {"name": "John Doe", "email": "john@example.com"}
 
 # Form fields with variables
-reqo run upload-file --var file_path="/path/to/file.txt" --var desc="My file"
+reqo call run upload-file --var file_path="/path/to/file.txt" --var desc="My file"
 # Results in: file=@/path/to/file.txt, description=My file
 
 # Variables in JSON files are also expanded
-reqo run create-user --json @user-template.json --var name="Jane" --var email="jane@example.com"
+reqo call run create-user --json @user-template.json --var name="Jane" --var email="jane@example.com"
 # If user-template.json contains: {"name": "${name}", "email": "${email}"}
 # Results in: {"name": "Jane", "email": "jane@example.com"}
 ```
@@ -348,7 +348,7 @@ Command-line flags always override saved payloads:
 
 ```bash
 # This will use the command-line JSON instead of the saved one
-reqo run create-user --json '{"name": "Override", "email": "override@example.com"}'
+reqo call run create-user --json '{"name": "Override", "email": "override@example.com"}'
 ```
 
 ## Request Options
@@ -386,17 +386,17 @@ reqo env add prod --base-url https://api.example.com
 reqo header set --name auth "Authorization: Bearer ${API_TOKEN}"
 
 # 4. Create saved calls
-reqo save create list-users GET /users --use-headers auth
-reqo save create create-user POST /users --use-headers auth --json '{"name": "${name}", "email": "${email}"}'
-reqo save create get-user GET /users/${id} --use-headers auth
+reqo call create list-users GET /users --use-headers auth
+reqo call create create-user POST /users --use-headers auth --json '{"name": "${name}", "email": "${email}"}'
+reqo call create get-user GET /users/${id} --use-headers auth
 
 # 5. Test the API
-reqo run list-users --env dev
-reqo run create-user --env dev --var name="John" --var email="john@example.com"
-reqo run get-user --env dev --var id=123
+reqo call run list-users --env dev
+reqo call run create-user --env dev --var name="John" --var email="john@example.com"
+reqo call run get-user --env dev --var id=123
 
 # 6. Generate curl for debugging
-reqo run list-users --env prod --as-curl
+reqo call run list-users --env prod --as-curl
 ```
 
 ### One-off Requests
