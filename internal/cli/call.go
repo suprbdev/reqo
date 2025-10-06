@@ -19,6 +19,16 @@ func newCallCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "call",
 		Short: "Manage and run saved calls (aliases)",
+        Args:  cobra.ArbitraryArgs,
+        RunE: func(cmd *cobra.Command, args []string) error {
+            // If a known subcommand matched, Cobra won't call this.
+            // If we are here and an argument is provided, treat it as an alias and run it.
+            if len(args) == 0 {
+                return cmd.Help()
+            }
+            alias := args[0]
+            return executeCall(cmd, alias)
+        },
 	}
 
 	// call create <alias> <method> <path>
@@ -132,103 +142,15 @@ func newCallCmd() *cobra.Command {
 	}
 	cmd.AddCommand(rmCmd)
 
-	// call run <alias>
-	runCmd := &cobra.Command{
+    // call run <alias>
+    runCmd := &cobra.Command{
 		Use:     "run <alias>",
 		Aliases: []string{"exec"},
 		Short:   "Execute a saved call with optional overrides",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			alias := args[0]
-			pCtx, err := resolveProject(cmd)
-			if err != nil {
-				return err
-			}
-			callDef, ok := pCtx.Project.Calls[alias]
-			if !ok {
-				return fmt.Errorf("call %q not defined in project %s", alias, pCtx.Project.Name)
-			}
-
-			vars := map[string]string{}
-			for _, v := range getStringArray(cmd, "var") {
-				kv := strings.SplitN(v, "=", 2)
-				if len(kv) == 2 {
-					vars[kv[0]] = kv[1]
-				}
-			}
-
-			// derive environment name: flag > REQO_ENV > project default (handled in BuildRequest)
-			envName := getString(cmd, "env")
-			if envName == "" {
-				envName = os.Getenv("REQO_ENV")
-			}
-
-			spec := httpx.RequestSpec{
-				Method:       callDef.Method,
-				Path:         callDef.Path,
-				QueryParams:  getStringArray(cmd, "query"),
-				Headers:      getStringArray(cmd, "header"),
-				UseHeaderSet: callDef.UseHeaderSet,
-				Vars:         vars,
-				EnvName:      envName,
-			}
-
-			if jsonBody := getString(cmd, "json"); jsonBody != "" {
-				spec.JSONBody = &jsonBody
-			} else if callDef.Body != nil && callDef.Body.JSON != nil {
-				expandedJSON := template.Expand(*callDef.Body.JSON, vars)
-				spec.JSONBody = &expandedJSON
-			}
-
-			if rawBody := getString(cmd, "data"); rawBody != "" {
-				spec.RawBody = &rawBody
-			} else if callDef.Body != nil && callDef.Body.Raw != nil {
-				expandedRaw := template.Expand(*callDef.Body.Raw, vars)
-				spec.RawBody = &expandedRaw
-			}
-
-			if formMap := getStringToString(cmd, "form"); len(formMap) > 0 {
-				spec.FormFields = formMap
-			} else if callDef.Body != nil && len(callDef.Body.Form) > 0 {
-				expandedForm := make(map[string]string)
-				for k, v := range callDef.Body.Form {
-					expandedForm[k] = template.Expand(v, vars)
-				}
-				spec.FormFields = expandedForm
-			}
-
-			req, err := httpx.BuildRequest(pCtx.Project, spec)
-			if err != nil {
-				return err
-			}
-
-			if getBool(cmd, "as-curl") {
-				curlCmd, _ := httpx.AsCurl(req)
-				fmt.Fprintln(cmd.OutOrStdout(), curlCmd)
-				return nil
-			}
-
-			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(getInt(cmd, "timeout"))*time.Second)
-			defer cancel()
-
-			execOpts := httpx.ExecOpts{
-				Timeout:      time.Duration(getInt(cmd, "timeout")) * time.Second,
-				Retries:      getInt(cmd, "retries"),
-				Backoff:      200 * time.Millisecond,
-				MaxRedirects: 10,
-			}
-			resp, err := httpx.Execute(ctx, nil, req, execOpts)
-			if err != nil {
-				return fmt.Errorf("request failed: %w", err)
-			}
-			defer resp.Body.Close()
-
-			renderOpts := output.RenderOpts{
-				ShowHeaders: getBool(cmd, "include"),
-				RawOutput:   getBool(cmd, "raw"),
-				JQExpr:      "",
-			}
-			return output.Render(resp, cmd.OutOrStdout(), renderOpts)
+            alias := args[0]
+            return executeCall(cmd, alias)
 		},
 	}
 	runCmd.Flags().StringArray("header", nil, "extra header (Key: Value)")
@@ -246,7 +168,117 @@ func newCallCmd() *cobra.Command {
 	runCmd.Flags().StringToString("form", nil, "multipart form fields (k=v, use @file for uploads)")
 	cmd.AddCommand(runCmd)
 
+    // Also add run-related flags to the parent command to support shorthand: `reqo call <alias> [flags]`
+    // These are duplicated so that Cobra can parse them at the parent level.
+    cmd.Flags().StringArray("header", nil, "extra header (Key: Value)")
+    cmd.Flags().StringArray("query", nil, "extra query param (k=v)")
+    cmd.Flags().String("env", "", "environment to use")
+    cmd.Flags().Bool("as-curl", false, "print equivalent curl command and exit")
+    cmd.Flags().BoolP("include", "i", false, "show response headers")
+    cmd.Flags().Bool("raw", false, "output raw body")
+    cmd.Flags().Int("timeout", 30, "request timeout in seconds")
+    cmd.Flags().Int("retries", 0, "number of retries on failure")
+    cmd.Flags().StringArray("var", nil, "variables for template expansion (key=value)")
+    cmd.Flags().String("json", "", "JSON body or @file")
+    cmd.Flags().String("data", "", "raw body or @file")
+    cmd.Flags().StringToString("form", nil, "multipart form fields (k=v, use @file for uploads)")
+
 	return cmd
+}
+
+// executeCall contains the logic to execute a saved call. It is used by both
+// the `call run` subcommand and the parent `call` command when invoked as
+// `reqo call <alias>`.
+func executeCall(cmd *cobra.Command, alias string) error {
+    pCtx, err := resolveProject(cmd)
+    if err != nil {
+        return err
+    }
+    callDef, ok := pCtx.Project.Calls[alias]
+    if !ok {
+        return fmt.Errorf("call %q not defined in project %s", alias, pCtx.Project.Name)
+    }
+
+    vars := map[string]string{}
+    for _, v := range getStringArray(cmd, "var") {
+        kv := strings.SplitN(v, "=", 2)
+        if len(kv) == 2 {
+            vars[kv[0]] = kv[1]
+        }
+    }
+
+    // derive environment name: flag > REQO_ENV > project default (handled in BuildRequest)
+    envName := getString(cmd, "env")
+    if envName == "" {
+        envName = os.Getenv("REQO_ENV")
+    }
+
+    spec := httpx.RequestSpec{
+        Method:       callDef.Method,
+        Path:         callDef.Path,
+        QueryParams:  getStringArray(cmd, "query"),
+        Headers:      getStringArray(cmd, "header"),
+        UseHeaderSet: callDef.UseHeaderSet,
+        Vars:         vars,
+        EnvName:      envName,
+    }
+
+    if jsonBody := getString(cmd, "json"); jsonBody != "" {
+        spec.JSONBody = &jsonBody
+    } else if callDef.Body != nil && callDef.Body.JSON != nil {
+        expandedJSON := template.Expand(*callDef.Body.JSON, vars)
+        spec.JSONBody = &expandedJSON
+    }
+
+    if rawBody := getString(cmd, "data"); rawBody != "" {
+        spec.RawBody = &rawBody
+    } else if callDef.Body != nil && callDef.Body.Raw != nil {
+        expandedRaw := template.Expand(*callDef.Body.Raw, vars)
+        spec.RawBody = &expandedRaw
+    }
+
+    if formMap := getStringToString(cmd, "form"); len(formMap) > 0 {
+        spec.FormFields = formMap
+    } else if callDef.Body != nil && len(callDef.Body.Form) > 0 {
+        expandedForm := make(map[string]string)
+        for k, v := range callDef.Body.Form {
+            expandedForm[k] = template.Expand(v, vars)
+        }
+        spec.FormFields = expandedForm
+    }
+
+    req, err := httpx.BuildRequest(pCtx.Project, spec)
+    if err != nil {
+        return err
+    }
+
+    if getBool(cmd, "as-curl") {
+        curlCmd, _ := httpx.AsCurl(req)
+        fmt.Fprintln(cmd.OutOrStdout(), curlCmd)
+        return nil
+    }
+
+    ctx, cancel := context.WithTimeout(context.Background(), time.Duration(getInt(cmd, "timeout"))*time.Second)
+    defer cancel()
+
+    execOpts := httpx.ExecOpts{
+        Timeout:      time.Duration(getInt(cmd, "timeout")) * time.Second,
+        Retries:      getInt(cmd, "retries"),
+        Backoff:      200 * time.Millisecond,
+        MaxRedirects: 10,
+    }
+    resp, err := httpx.Execute(ctx, nil, req, execOpts)
+    if err != nil {
+        return fmt.Errorf("request failed: %w", err)
+    }
+    defer resp.Body.Close()
+
+    renderOpts := output.RenderOpts{
+        ShowHeaders: getBool(cmd, "include"),
+        RawOutput:   getBool(cmd, "raw"),
+        JQExpr:      "",
+    }
+    return output.Render(resp, cmd.OutOrStdout(), renderOpts)
 }
 
 

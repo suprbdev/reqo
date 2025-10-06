@@ -182,12 +182,12 @@ Remove a saved call.
 reqo call rm old-call
 ```
 
-#### `reqo call run <alias>`
-Execute a saved call with optional overrides.
+#### `reqo call run <alias>` (or shorthand `reqo call <alias>`)
+Execute a saved call with optional overrides. You can also omit `run` and use the shorthand form.
 
 ```bash
-reqo call run get-users
-reqo call run get-users --env prod
+reqo call get-users
+reqo call get-users --env prod
 reqo call run get-users --header "X-Custom: value"
 reqo call run get-users --var id=123
 reqo call run get-users --as-curl
